@@ -14,10 +14,20 @@ jobs:
 
     strategy:
       matrix:
-        mode: [mcp, ssr]
+        include:
+          - mode: mcp
+            extra_tags: ""
+          - mode: ssr
+            extra_tags: ghcr.io/${{ github.repository }}:latest-http
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -32,6 +42,8 @@ jobs:
           context: .
           file: ./Dockerfile.${{ matrix.mode }}
           push: true
+          platforms: linux/arm64
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}-${{ matrix.mode }}
             ghcr.io/${{ github.repository }}:latest-${{ matrix.mode }}
+            ${{ matrix.extra_tags }}

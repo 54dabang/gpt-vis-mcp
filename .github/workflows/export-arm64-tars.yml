@@ -1,0 +1,37 @@
+name: Export ARM64 Docker Tars
+
+on:
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - artifact: gpt-vis-mcp-arm64
+            image: ghcr.io/54dabang/gpt-vis-mcp:latest-mcp
+            tar: gpt-vis-mcp-arm64.tar
+          - artifact: gpt-vis-ssr-arm64
+            image: ghcr.io/54dabang/gpt-vis-mcp:latest-http
+            tar: gpt-vis-ssr-arm64.tar
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull ARM64 image
+        run: docker pull --platform linux/arm64 "${{ matrix.image }}"
+
+      - name: Save tar
+        run: docker save -o "${{ matrix.tar }}" "${{ matrix.image }}"
+
+      - name: Upload tar
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.tar }}
+          if-no-files-found: error

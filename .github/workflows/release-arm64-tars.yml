@@ -1,0 +1,51 @@
+name: Release ARM64 Docker Tars
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag for the tar files
+        required: true
+        default: arm64-tars-20260604
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull ARM64 images
+        run: |
+          docker pull --platform linux/arm64 ghcr.io/54dabang/gpt-vis-mcp:latest-mcp
+          docker pull --platform linux/arm64 ghcr.io/54dabang/gpt-vis-mcp:latest-http
+
+      - name: Save tar files
+        run: |
+          docker save -o gpt-vis-mcp-arm64.tar ghcr.io/54dabang/gpt-vis-mcp:latest-mcp
+          docker save -o gpt-vis-ssr-arm64.tar ghcr.io/54dabang/gpt-vis-mcp:latest-http
+          shasum -a 256 gpt-vis-mcp-arm64.tar gpt-vis-ssr-arm64.tar > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ARM64 Docker tars ${{ inputs.tag }}
+          body: |
+            ARM64 Docker image tar files for Linux aarch64.
+
+            Images:
+            - ghcr.io/54dabang/gpt-vis-mcp:latest-mcp
+            - ghcr.io/54dabang/gpt-vis-mcp:latest-http
+          files: |
+            gpt-vis-mcp-arm64.tar
+            gpt-vis-ssr-arm64.tar
+            SHA256SUMS.txt
+          fail_on_unmatched_files: true

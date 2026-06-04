@@ -1,0 +1,55 @@
+name: Docker Push Page64K Self Hosted
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_suffix:
+        description: Tag suffix for images built on the 64K-page ARM64 host
+        required: true
+        default: page64k
+
+jobs:
+  build:
+    runs-on: [self-hosted, Linux, ARM64, page64k]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - mode: mcp
+            image: ghcr.io/${{ github.repository }}:latest-mcp-${{ inputs.tag_suffix }}
+          - mode: ssr
+            image: ghcr.io/${{ github.repository }}:latest-http-${{ inputs.tag_suffix }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify host is ARM64 with 64K pages
+        run: |
+          test "$(uname -m)" = "aarch64"
+          test "$(getconf PAGE_SIZE)" = "65536"
+          docker version
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image on target-compatible host
+        run: |
+          docker build \
+            -f Dockerfile.${{ matrix.mode }} \
+            -t "${{ matrix.image }}" \
+            .
+
+      - name: Smoke test native canvas load
+        run: |
+          docker run --rm --entrypoint deno "${{ matrix.image }}" \
+            eval --allow-read --allow-env --allow-ffi --allow-sys --allow-run \
+            'import { createCanvas } from "npm:canvas@3.2.0"; const canvas = createCanvas(10, 10); console.log(canvas.width);'
+
+      - name: Push image
+        run: docker push "${{ matrix.image }}"

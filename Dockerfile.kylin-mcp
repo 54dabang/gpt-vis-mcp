@@ -23,7 +23,6 @@ RUN yum update -y && yum install -y \
     glibc-langpack-en \
     glibc-langpack-zh \
     fontconfig \
-    google-noto-sans-cjk-fonts \
     && yum clean all
 
 RUN curl -fsSL https://rpm.nodesource.com/setup_lts.x | bash - \

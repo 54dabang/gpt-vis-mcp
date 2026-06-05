@@ -42,13 +42,15 @@ RUN yum update -y && yum install -y \
     fontconfig \
     && yum clean all
 
+RUN python3 -m pip install --no-cache-dir meson ninja
+
 RUN curl -fsSL "https://www.cairographics.org/releases/pixman-${PIXMAN_VERSION}.tar.gz" -o /tmp/pixman.tar.gz \
     && mkdir -p /tmp/pixman \
     && tar -xzf /tmp/pixman.tar.gz -C /tmp/pixman --strip-components=1 \
     && cd /tmp/pixman \
-    && ./configure --prefix=/usr/local --disable-static \
-    && make -j"$(nproc)" \
-    && make install \
+    && meson setup build --prefix=/usr/local --libdir=lib -Ddefault_library=shared \
+    && meson compile -C build -j"$(nproc)" \
+    && meson install -C build \
     && rm -rf /tmp/pixman /tmp/pixman.tar.gz \
     && ldconfig
 
@@ -56,9 +58,9 @@ RUN curl -fsSL "https://www.cairographics.org/releases/cairo-${CAIRO_VERSION}.ta
     && mkdir -p /tmp/cairo \
     && tar -xJf /tmp/cairo.tar.xz -C /tmp/cairo --strip-components=1 \
     && cd /tmp/cairo \
-    && ./configure --prefix=/usr/local --disable-static --enable-ft --enable-fc --enable-png --disable-xlib --disable-xcb --disable-gtk-doc \
-    && make -j"$(nproc)" \
-    && make install \
+    && meson setup build --prefix=/usr/local --libdir=lib -Ddefault_library=shared \
+    && meson compile -C build -j"$(nproc)" \
+    && meson install -C build \
     && rm -rf /tmp/cairo /tmp/cairo.tar.xz \
     && ldconfig \
     && readelf -l /usr/local/lib/libpixman-1.so.0 | grep LOAD \

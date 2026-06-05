@@ -5,6 +5,7 @@ LABEL name="gpt-vis-mcp"
 LABEL description="GPT-Vis MCP Server - SSR Mode - Kylin ARM64 build"
 
 ARG DENO_VERSION=2.3.6
+ARG NODE_VERSION=22.21.1
 
 RUN yum update -y && yum install -y \
     gcc \
@@ -25,10 +26,12 @@ RUN yum update -y && yum install -y \
     fontconfig \
     && yum clean all
 
-RUN curl -fsSL https://rpm.nodesource.com/setup_lts.x | bash - \
-    && yum install -y nodejs \
-    && npm install -g node-gyp \
-    && yum clean all
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz" -o /tmp/node.tar.xz \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+    && rm -f /tmp/node.tar.xz \
+    && node --version \
+    && npm --version \
+    && npm install -g node-gyp
 
 RUN curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-aarch64-unknown-linux-gnu.zip" -o /tmp/deno.zip \
     && unzip /tmp/deno.zip -d /usr/local/bin \

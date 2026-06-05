@@ -104,7 +104,7 @@ RUN deno task compile && \
     deno cache --allow-scripts=npm:canvas@3.2.0 server.ts && \
     deno cache --allow-scripts=npm:canvas@3.2.0 stdio.server.ts && \
     deno cache --allow-scripts=npm:canvas@3.2.0 app.ts && \
-    deno eval --allow-all "const canvas = await import('npm:canvas@3.2.0'); const createCanvas = canvas.createCanvas ?? canvas.default.createCanvas; createCanvas(1, 1).getContext('2d').fillRect(0, 0, 1, 1)"
+    deno eval --allow-scripts=npm:canvas@3.2.0 "const canvas = await import('npm:canvas@3.2.0'); const createCanvas = canvas.createCanvas ?? canvas.default.createCanvas; createCanvas(1, 1).getContext('2d').fillRect(0, 0, 1, 1)"
 
 ENTRYPOINT ["deno", "run", "--cached-only", "--allow-all", "server.ts"]
 CMD ["--transport", "stdio"]

@@ -1,0 +1,64 @@
+ARG KYLIN_BASE_IMAGE=macrosan/kylin:v10-sp3-2403
+FROM ${KYLIN_BASE_IMAGE}
+
+LABEL name="gpt-vis-mcp"
+LABEL description="GPT-Vis MCP Server - MCP Mode - Kylin ARM64 build"
+
+ARG DENO_VERSION=2.3.6
+
+RUN yum update -y && yum install -y \
+    gcc \
+    gcc-c++ \
+    make \
+    cairo-devel \
+    pango-devel \
+    libjpeg-devel \
+    giflib-devel \
+    librsvg2-devel \
+    pkgconfig \
+    python3 \
+    python3-pip \
+    curl \
+    unzip \
+    glibc-langpack-en \
+    glibc-langpack-zh \
+    fontconfig \
+    google-noto-sans-cjk-fonts \
+    && yum clean all
+
+RUN curl -fsSL https://rpm.nodesource.com/setup_lts.x | bash - \
+    && yum install -y nodejs \
+    && yum clean all
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /root/.local/bin/uv tool install mcp-proxy
+
+RUN curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-aarch64-unknown-linux-gnu.zip" -o /tmp/deno.zip \
+    && unzip /tmp/deno.zip -d /usr/local/bin \
+    && chmod +x /usr/local/bin/deno \
+    && rm -f /tmp/deno.zip
+
+WORKDIR /app
+
+COPY deno.json deno.lock* ./
+
+ENV RENDERED_IMAGE_PATH=/tmp/gpt-vis-charts \
+    DENO_DIR=/deno-dir \
+    DENO_INSTALL_ROOT=/deno-dir/install-root \
+    DENO_CACHED_ONLY=true \
+    LANG=zh_CN.UTF-8 \
+    LANGUAGE=zh_CN:zh \
+    LC_ALL=zh_CN.UTF-8 \
+    PATH="/root/.local/bin:$PATH"
+
+RUN mkdir -p $DENO_DIR $RENDERED_IMAGE_PATH
+
+COPY . .
+
+RUN deno task compile && \
+    deno cache --allow-scripts=npm:canvas@3.2.0 server.ts && \
+    deno cache --allow-scripts=npm:canvas@3.2.0 stdio.server.ts && \
+    deno cache --allow-scripts=npm:canvas@3.2.0 app.ts
+
+ENTRYPOINT ["deno", "run", "--cached-only", "--allow-all", "server.ts"]
+CMD ["--transport", "stdio"]

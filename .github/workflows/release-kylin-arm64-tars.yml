@@ -14,7 +14,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
     strategy:
@@ -31,9 +31,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -69,7 +66,7 @@ jobs:
             Base image:
             `${{ inputs.kylin_base_image }}`
 
-            These images are built with GitHub hosted runners using Docker Buildx `linux/arm64`.
+            These images are built with GitHub hosted ARM64 runners using Docker Buildx `linux/arm64`.
             Native dependencies are installed inside the vendor base image, and Node/Deno native
             addons such as `canvas` are forced to compile from source to avoid generic 4K-page
             prebuilt binaries. Final verification on the target 64K-page Linux server is still required.

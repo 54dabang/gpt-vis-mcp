@@ -11,7 +11,10 @@ ARG CAIRO_VERSION=1.16.0
 
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib64/pkgconfig \
     LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64 \
-    LDFLAGS="-Wl,-z,max-page-size=65536"
+    LDFLAGS="-Wl,-z,max-page-size=65536" \
+    npm_config_build_from_source=true \
+    npm_config_canvas_build_from_source=true \
+    npm_config_foreground_scripts=true
 
 RUN yum update -y && yum install -y \
     autoconf \
@@ -96,7 +99,9 @@ RUN mkdir -p $DENO_DIR $RENDERED_IMAGE_PATH
 COPY . .
 
 RUN deno task compile && \
-    deno cache stdio.server.ts
+    deno cache --allow-scripts=npm:canvas@3.2.0 ssr.server.ts && \
+    deno cache --allow-scripts=npm:canvas@3.2.0 stdio.server.ts && \
+    deno eval --allow-all "const canvas = await import('npm:canvas@3.2.0'); const createCanvas = canvas.createCanvas ?? canvas.default.createCanvas; createCanvas(1, 1).getContext('2d').fillRect(0, 0, 1, 1)"
 
 EXPOSE 3000
 

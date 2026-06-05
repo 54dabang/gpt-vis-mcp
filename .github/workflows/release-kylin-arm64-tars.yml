@@ -70,8 +70,9 @@ jobs:
             `${{ inputs.kylin_base_image }}`
 
             These images are built with GitHub hosted runners using Docker Buildx `linux/arm64`.
-            Native dependencies are installed inside the vendor base image. Final verification
-            on the target 64K-page Linux server is still required.
+            Native dependencies are installed inside the vendor base image, and Node/Deno native
+            addons such as `canvas` are forced to compile from source to avoid generic 4K-page
+            prebuilt binaries. Final verification on the target 64K-page Linux server is still required.
           files: |
             ${{ matrix.tar }}
             ${{ matrix.tar }}.sha256

@@ -7,7 +7,7 @@ LABEL description="GPT-Vis MCP Server - SSR Mode - Kylin ARM64 build"
 ARG DENO_VERSION=2.3.6
 ARG NODE_VERSION=22.21.1
 ARG PIXMAN_VERSION=0.43.4
-ARG CAIRO_VERSION=1.18.2
+ARG CAIRO_VERSION=1.16.0
 
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib64/pkgconfig \
     LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64 \
@@ -58,9 +58,9 @@ RUN curl -fsSL "https://www.cairographics.org/releases/cairo-${CAIRO_VERSION}.ta
     && mkdir -p /tmp/cairo \
     && tar -xJf /tmp/cairo.tar.xz -C /tmp/cairo --strip-components=1 \
     && cd /tmp/cairo \
-    && meson setup build --prefix=/usr/local --libdir=lib -Ddefault_library=shared \
-    && meson compile -C build -j"$(nproc)" \
-    && meson install -C build \
+    && ./configure --prefix=/usr/local --libdir=/usr/local/lib --disable-static --enable-ft --enable-fc --enable-png --disable-xlib --disable-xcb --disable-gtk-doc \
+    && make -j"$(nproc)" \
+    && make install \
     && rm -rf /tmp/cairo /tmp/cairo.tar.xz \
     && ldconfig \
     && readelf -l /usr/local/lib/libpixman-1.so.0 | grep LOAD \

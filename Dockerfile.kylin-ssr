@@ -6,12 +6,28 @@ LABEL description="GPT-Vis MCP Server - SSR Mode - Kylin ARM64 build"
 
 ARG DENO_VERSION=2.3.6
 ARG NODE_VERSION=22.21.1
+ARG PIXMAN_VERSION=0.43.4
+ARG CAIRO_VERSION=1.18.2
+
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib64/pkgconfig \
+    LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64 \
+    LDFLAGS="-Wl,-z,max-page-size=65536"
 
 RUN yum update -y && yum install -y \
+    autoconf \
+    automake \
+    binutils \
+    libtool \
     gcc \
     gcc-c++ \
     make \
-    cairo-devel \
+    xz \
+    tar \
+    zlib-devel \
+    libpng-devel \
+    freetype-devel \
+    fontconfig-devel \
+    expat-devel \
     pango-devel \
     libjpeg-devel \
     giflib-devel \
@@ -25,6 +41,28 @@ RUN yum update -y && yum install -y \
     glibc-langpack-zh \
     fontconfig \
     && yum clean all
+
+RUN curl -fsSL "https://www.cairographics.org/releases/pixman-${PIXMAN_VERSION}.tar.gz" -o /tmp/pixman.tar.gz \
+    && mkdir -p /tmp/pixman \
+    && tar -xzf /tmp/pixman.tar.gz -C /tmp/pixman --strip-components=1 \
+    && cd /tmp/pixman \
+    && ./configure --prefix=/usr/local --disable-static \
+    && make -j"$(nproc)" \
+    && make install \
+    && rm -rf /tmp/pixman /tmp/pixman.tar.gz \
+    && ldconfig
+
+RUN curl -fsSL "https://www.cairographics.org/releases/cairo-${CAIRO_VERSION}.tar.xz" -o /tmp/cairo.tar.xz \
+    && mkdir -p /tmp/cairo \
+    && tar -xJf /tmp/cairo.tar.xz -C /tmp/cairo --strip-components=1 \
+    && cd /tmp/cairo \
+    && ./configure --prefix=/usr/local --disable-static --enable-ft --enable-fc --enable-png --disable-xlib --disable-xcb --disable-gtk-doc \
+    && make -j"$(nproc)" \
+    && make install \
+    && rm -rf /tmp/cairo /tmp/cairo.tar.xz \
+    && ldconfig \
+    && readelf -l /usr/local/lib/libpixman-1.so.0 | grep LOAD \
+    && readelf -l /usr/local/lib/libcairo.so.2 | grep LOAD
 
 RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz" -o /tmp/node.tar.xz \
     && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \

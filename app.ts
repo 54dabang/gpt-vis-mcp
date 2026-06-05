@@ -240,131 +240,129 @@ export async function generateChartForHttp(
   }
 }
 
-// Initialize directory at startup
-console.log("🚀 Initializing GPT-Vis MCP Server...");
-console.log(`📁 Image directory: ${config.renderedImagePath}`);
-if (config.renderedImageHostPath) {
-  console.log(`🌐 Host path: ${config.renderedImageHostPath}`);
-}
-
-try {
-  await initializeImageDirectory();
-  console.log("✅ Image directory initialized successfully");
-} catch (error) {
-  console.error("❌ Startup failed:", error);
-  process.exit(1);
-}
-
 /**
- * Compose MCP tools from the upstream chart server
+ * Create the MCP server and compose tools from the upstream chart server.
+ *
+ * Keep this lazy so the HTTP SSR server can import the chart helpers without
+ * starting the MCP stdio dependency graph before Deno.serve() is available.
  */
-console.log("🔧 Composing MCP tools from upstream chart server...");
-const { tools, cleanupClients } = await composeMcpDepTools({
-  mcpServers: {
-    "mcp-server-chart": {
-      command: "npx",
-      args: ["-y", "@antv/mcp-server-chart@0.7.1"],
-    },
-  },
-});
-export { cleanupClients };
-console.log(
-  `📊 Discovered ${Object.keys(tools).length} tools from upstream server`,
-);
-
-/**
- * Create the MCP server instance
- */
-console.log("🏗️  Creating MCP server instance...");
-export const server = new ComposableMCPServer(
-  {
-    name: "gpt-vis-mcp",
-    version: "0.0.5",
-  },
-  { capabilities: { tools: {} } },
-);
-console.log("✅ MCP server instance created successfully");
-
-/**
- * Register a tool with custom chart generation executor
- */
-const registerToolWithLocalExecutor = (tool: MCPTool): void => {
-  const { name, description, inputSchema } = tool;
-
-  // Check if this chart type is supported
-  if (CHART_TYPE_UNSUPPORTED.includes(name)) {
-    console.log(`⚠️  Skipping unsupported chart type: ${name}`);
-    return;
+export async function createMcpServer(): Promise<{
+  server: ComposableMCPServer;
+  cleanupClients: () => Promise<void>;
+}> {
+  console.log("🚀 Initializing GPT-Vis MCP Server...");
+  console.log(`📁 Image directory: ${config.renderedImagePath}`);
+  if (config.renderedImageHostPath) {
+    console.log(`🌐 Host path: ${config.renderedImageHostPath}`);
   }
 
-  console.log(`🔧 Registering tool: ${name}`);
+  try {
+    await initializeImageDirectory();
+    console.log("✅ Image directory initialized successfully");
+  } catch (error) {
+    console.error("❌ Startup failed:", error);
+    process.exit(1);
+  }
 
-  server.tool(
-    name,
-    description,
-    jsonSchema(inputSchema),
-    async (context: unknown): Promise<ChartResult> => {
-      console.log(`🚀 Executing tool: ${name}`);
-
-      try {
-        // Extract data from context
-        const { data } = context as { data: Record<string, unknown> };
-        console.log(
-          `📝 Processing data for ${name}:`,
-          Object.keys(data).length,
-          "fields",
-        );
-
-        // Map the tool name to chart type
-        const type = CHART_TYPE_MAP[name as keyof typeof CHART_TYPE_MAP];
-
-        if (!type) {
-          throw new Error(`Unknown chart type for tool: ${name}`);
-        }
-
-        const options: ChartOptions = {
-          type,
-          data,
-        };
-
-        return await generateChart(options);
-      } catch (error) {
-        const errorMessage = error instanceof Error
-          ? error.message
-          : String(error);
-        console.error(`❌ Tool execution failed for ${name}:`, errorMessage);
-
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: `Error executing ${name}: ${errorMessage}`,
-            },
-          ],
-        };
-      }
+  console.log("🔧 Composing MCP tools from upstream chart server...");
+  const { tools, cleanupClients } = await composeMcpDepTools({
+    mcpServers: {
+      "mcp-server-chart": {
+        command: "npx",
+        args: ["-y", "@antv/mcp-server-chart@0.7.1"],
+      },
     },
   );
-};
+  console.log(
+    `📊 Discovered ${Object.keys(tools).length} tools from upstream server`,
+  );
 
-// Register all supported tools
-const supportedTools = (Object.values(tools) as MCPTool[]).filter(
-  (tool: MCPTool) => !CHART_TYPE_UNSUPPORTED.includes(tool.name),
-);
+  console.log("🏗️  Creating MCP server instance...");
+  const server = new ComposableMCPServer(
+    {
+      name: "gpt-vis-mcp",
+      version: "0.0.5",
+    },
+    { capabilities: { tools: {} } },
+  );
+  console.log("✅ MCP server instance created successfully");
 
-console.log(
-  `📦 Registering ${supportedTools.length} supported tools out of ${
-    Object.keys(tools).length
-  } total tools`,
-);
-console.log(
-  `🚫 Skipping ${CHART_TYPE_UNSUPPORTED.length} unsupported tools:`,
-  CHART_TYPE_UNSUPPORTED.join(", "),
-);
+  const registerToolWithLocalExecutor = (tool: MCPTool): void => {
+    const { name, description, inputSchema } = tool;
 
-supportedTools.forEach(registerToolWithLocalExecutor);
+    if (CHART_TYPE_UNSUPPORTED.includes(name)) {
+      console.log(`⚠️  Skipping unsupported chart type: ${name}`);
+      return;
+    }
 
-console.log("🎉 GPT-Vis MCP Server initialization completed successfully!");
-console.log(`🔧 Total registered tools: ${supportedTools.length}`);
-console.log("🟢 Server is ready to handle chart generation requests");
+    console.log(`🔧 Registering tool: ${name}`);
+
+    server.tool(
+      name,
+      description,
+      jsonSchema(inputSchema),
+      async (context: unknown): Promise<ChartResult> => {
+        console.log(`🚀 Executing tool: ${name}`);
+
+        try {
+          const { data } = context as { data: Record<string, unknown> };
+          console.log(
+            `📝 Processing data for ${name}:`,
+            Object.keys(data).length,
+            "fields",
+          );
+
+          const type = CHART_TYPE_MAP[name as keyof typeof CHART_TYPE_MAP];
+
+          if (!type) {
+            throw new Error(`Unknown chart type for tool: ${name}`);
+          }
+
+          const options: ChartOptions = {
+            type,
+            data,
+          };
+
+          return await generateChart(options);
+        } catch (error) {
+          const errorMessage = error instanceof Error
+            ? error.message
+            : String(error);
+          console.error(`❌ Tool execution failed for ${name}:`, errorMessage);
+
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: `Error executing ${name}: ${errorMessage}`,
+              },
+            ],
+          };
+        }
+      },
+    );
+  };
+
+  const supportedTools = (Object.values(tools) as MCPTool[]).filter(
+    (tool: MCPTool) => !CHART_TYPE_UNSUPPORTED.includes(tool.name),
+  );
+
+  console.log(
+    `📦 Registering ${supportedTools.length} supported tools out of ${
+      Object.keys(tools).length
+    } total tools`,
+  );
+  console.log(
+    `🚫 Skipping ${CHART_TYPE_UNSUPPORTED.length} unsupported tools:`,
+    CHART_TYPE_UNSUPPORTED.join(", "),
+  );
+
+  supportedTools.forEach(registerToolWithLocalExecutor);
+
+  console.log("🎉 GPT-Vis MCP Server initialization completed successfully!");
+  console.log(`🔧 Total registered tools: ${supportedTools.length}`);
+  console.log("🟢 Server is ready to handle chart generation requests");
+
+  return { server, cleanupClients };
+}
